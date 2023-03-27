@@ -1,0 +1,77 @@
+# Automatically run tests on every commit to the repository and update the library version when commit message contains [tag:patch|minor|major].
+
+name: Update Version
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    # only run if commit message contains versioning setting
+    if: |
+      contains(github.event.head_commit.message, '[tag:patch]')
+      || contains(github.event.head_commit.message, '[tag:minor]')
+      || contains(github.event.head_commit.message, '[tag:major]')
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # run unit tests
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ">=1.19.0"
+
+      - name: Run unit tests
+        env:
+          BUF_USER: ${{ secrets.BUF_USER }}
+          BUF_PAT: ${{ secrets.BUF_PAT }}
+          GH_USER: ${{ secrets.REPO_USER }}
+          GH_PAT: ${{ secrets.REPO_TOKEN }}
+          GH_ORG: ${{ github.repository_owner }}
+        run: |
+          echo "machine github.com login $GH_USER password $GH_PAT" >> ~/.netrc
+          echo "machine go.buf.build login $BUF_USER password $BUF_PAT" >> ~/.netrc
+          go env -w GOPRIVATE="github.com/$GH_ORG/*"
+          go mod download
+          go test -v ./...
+      
+      # generate new version number — increment based on [tag:xxx] setting
+      - name: Generate version
+        id: version
+        uses: paulhatch/semantic-version@v5.0.3
+        with:
+          major_pattern: "[tag:major]"
+          minor_pattern: "[tag:minor]"
+
+      # tag the repo using the new version
+      - name: Tag repo
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: "refs/tags/${{ steps.version.outputs.version_tag }}",
+              sha: context.sha
+            })
+      # create  git release based on the tag
+      - name: Create release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: "${{ steps.version.outputs.version_tag }}"
+            })

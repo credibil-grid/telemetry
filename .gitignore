@@ -1,0 +1,6 @@
+
+.vscode/*.log
+coverage.html
+
+.DS_Store
+
