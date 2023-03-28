@@ -39,8 +39,8 @@ func Tracer(next http.Handler) http.Handler {
 	})
 }
 
-// InitTracer initiatises the OpenTelemetry exporter(s)
-func InitTracer() (shutdown ShutdownFunc, err error) {
+// WithTracer initiatises OpenTelemetry trace exporter(s)
+func WithTracer() (shutdown ShutdownFunc, err error) {
 
 	// create OLTP http exporter
 	client := otlptracehttp.NewClient(
