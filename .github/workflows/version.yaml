@@ -1,4 +1,5 @@
-# Automatically run tests on every commit to the repository and update the library version when commit message contains [tag:patch|minor|major].
+# Automatically run tests on every commit to the repository and update the 
+# library patch version .
 
 name: Update Version
 
