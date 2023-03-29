@@ -25,6 +25,14 @@ var tracer trace.Tracer
 
 type ShutdownFunc func()
 
+type TraceOption func(*traceOptions)
+
+type traceOptions struct {
+	endpoint string
+}
+
+var DefaultEndpoint =  "ca-otel.internal." + os.Getenv("CONTAINER_APP_ENV_DNS_SUFFIX")
+
 // set instrumentation library name
 func init() {
 	tracer = otel.Tracer("credibil/instrumentation")
@@ -40,11 +48,17 @@ func Tracer(next http.Handler) http.Handler {
 }
 
 // WithTracer initiatises OpenTelemetry trace exporter(s)
-func WithTracer() (shutdown ShutdownFunc, err error) {
+func WithTracer(opts ...TraceOption) (shutdown ShutdownFunc, err error) {
+	to := traceOptions{
+		endpoint:DefaultEndpoint,
+	}
+	for _, opt := range opts {
+		opt(&to)
+	}
 
 	// create OLTP http exporter
 	client := otlptracehttp.NewClient(
-		otlptracehttp.WithEndpoint("ca-otel.internal." + os.Getenv("CONTAINER_APP_ENV_DNS_SUFFIX")),
+		otlptracehttp.WithEndpoint(to.endpoint),
 		// otlptracehttp.WithInsecure(),
 	)
 	traceExp, err := otlptrace.New(context.Background(), client)
@@ -92,6 +106,13 @@ func WithTracer() (shutdown ShutdownFunc, err error) {
 			log.Printf("error shutting down trace provider: %+v", err)
 		}
 	}, nil
+}
+
+// WithEndpoint is used to specify a custom endpoint for the OTLP exporter
+func WithEndpoint(endpoint string) TraceOption {
+	return func(to *traceOptions) {
+		to.endpoint = endpoint
+	}
 }
 
 // Implement a custom log writer to simplify log entries from the stdout exporter
