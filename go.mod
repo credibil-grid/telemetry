@@ -1,4 +1,4 @@
-module github.com/credibil/instrumentation
+module github.com/credibil/telemetry
 
 go 1.20
 
